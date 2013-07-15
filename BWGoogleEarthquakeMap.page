@@ -1,0 +1,173 @@
+<!-- Bluewolf Earthquake Assignment -->
+
+<apex:page showHeader="false" sidebar="false">
+<head>
+<script src="https://maps.googleapis.com/maps/api/js?v=3&sensor=false" type="text/javascript"></script>
+<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js"></script>
+<script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.2.6/jquery.min.js"></script>
+<script type="text/javascript">
+var markers = [];
+var geocoder;
+var map;
+
+/*initializing the javascript*/
+$(document).ready(function() {
+geocoder = new google.maps.Geocoder();
+generateMap();
+});
+
+/*generates the initial Map */
+function generateMap(){
+    map = new google.maps.Map(document.getElementById('map'), {
+      zoom: 5,
+      center: new google.maps.LatLng(41.353613, -72.777546),
+      streetViewControl: false,
+      mapTypeControl: true,
+      panControl: false,
+      zoomControl: false,
+      mapTypeId: google.maps.MapTypeId.TERRAIN
+    });
+
+  }
+
+/*calls the earthquake webservice to plot data on Google Map*/
+function callEarthquakeWS(earthquakedata,location){
+    var latlng=new Array();
+    jQuery.getJSON(earthquakedata, function(response) {
+     try{
+    map.setZoom(6);
+    for(var i=0;i<response.earthquakes.length;i++){
+    latlng = new google.maps.LatLng(response.earthquakes[i].lat,response.earthquakes[i].lng);
+    var title =' Magnitude:'+response.earthquakes[i].magnitude+'\n Depth: '+response.earthquakes[i].depth+'\n Date:'+response.earthquakes[i].datetime;
+    createMarker(latlng,title);
+    }
+    map.setCenter(location);
+            marker = new google.maps.Marker({
+            map: map, 
+            animation: google.maps.Animation.DROP,
+            position: location,
+            title:document.getElementById("address").value
+        });
+    }catch(err){
+    alert(err.message);
+    }
+});
+ 
+
+
+}
+
+/*creates a boundary box for the Map. Logic can be further enhanced later on to include complex bounding algorithms*/
+function getLocationBounds(){
+generateMap();
+var earthquake;
+var address = document.getElementById("address").value;
+var geocoder = new google.maps.Geocoder();
+    geocoder.geocode( {'address': address}, function(results, status) {
+      if (status == google.maps.GeocoderStatus.OK) {
+          // Calculate bounding box
+          var north = results[0].geometry.location.lat() + 1;
+          var south = results[0].geometry.location.lat() - 1;
+          var east = results[0].geometry.location.lng() + 1;
+          var west = results[0].geometry.location.lng() - 1;
+          earthquake = 'http://api.geonames.org/earthquakesJSON?north=' + north + '&south=' + south + '&east=' + east + '&west=' + west + '&username=sidarora&callback=?';
+          callEarthquakeWS(earthquake,results[0].geometry.location);
+          }
+           
+          });
+         
+      }
+/* calls webservice to retieve data and plots it on Google map */
+function plotTopTenEarthquakes(){
+var body = document.body, tbl  = document.createElement('table');
+    var earthquakeURL='http://api.geonames.org/earthquakesJSON?north=90&south=-90&east=90&west=-90&username=sidarora&date='+getCurrentTime()+'&callback=?';
+    jQuery.getJSON(earthquakeURL,function(data){
+        for(var j=0;j<data.earthquakes.length;j++){
+        var latlng= new google.maps.LatLng(data.earthquakes[j].lat,data.earthquakes[j].lng);
+        map.setZoom(2);
+        var title = ' Magnitude: '+data.earthquakes[j].magnitude+'\n Depth: '+data.earthquakes[j].depth+'\n Date: '+data.earthquakes[j].datetime;
+        createMarker(latlng,title);
+        tbl= createTable(tbl, title);   
+        }
+        body.appendChild(tbl);
+        });
+}
+
+/*creates table */
+function createTable(tbl,title){
+        var tr = document.createElement('tr');
+
+        var td = document.createElement('td');
+        td.appendChild(document.createTextNode(title));
+        tr.appendChild(td);
+    
+        tbl.appendChild(tr);
+        return tbl;
+    
+}
+
+/*creates Markers on Map */
+function createMarker(latlng, titleString){
+            new google.maps.Marker({
+            map: map, 
+            position: latlng,
+            title: titleString
+            });
+}
+
+/*gets current date and time*/
+function getCurrentTime(){
+    var cTime=new Date();
+    var date=cTime.getDate();
+    var month=cTime.getMonth()+1;
+    var year=cTime.getFullYear();
+    var cDate=year+"-"+month+"-"+date;
+    return cDate;
+}
+</script>
+<style>
+#map {
+  font-family: Arial;
+  font-size:12px;
+  line-height:normal !important;
+  height:700px;
+  background:transparent;
+}
+.button_map {
+position: absolute;
+left:20px;
+margin-top: 5px;
+height: 17px;
+width: 80px;
+z-index: 1;
+color: #000;
+line-height: 20px;
+font-size: 12px;
+padding: 0px 5px;
+border: 1px solid #a9bbdf;
+background: #fdfdfd;
+font-weight: bold;
+   -moz-user-select: -moz-none;
+   -khtml-user-select: none;
+   -webkit-user-select: none;
+   user-select: none;
+cursor: hand;
+-moz-box-shadow: 0 0 7px 2px #999;
+-webkit-box-shadow: 0 0 7px 2px #999;
+}
+#wrapper {
+position: relative;
+}
+</style>
+
+</head>
+
+<body onload="initialize()">
+<div>
+    <input id="address" type="textbox" size="30" value="11 E 26th St  New York, NY"/>
+    <input type="button" value="Search" onclick="getLocationBounds()"/>
+    <input type="button" value="Find Top Earthquakes" onclick="plotTopTenEarthquakes()"/>
+  </div>
+<div id="map"></div>
+</body>
+</apex:page>
